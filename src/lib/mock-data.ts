@@ -1,4 +1,7 @@
-import type { Course, Student } from "@/lib/types";
+import type {
+  Student,
+  Course,
+} from "./types";
 
 export const students: Student[] = [
   {
@@ -7,7 +10,7 @@ export const students: Student[] = [
     lastName: "Damon",
     program: "CPE",
     status: "Active",
-    enrolledCourses: ["CPE301"],
+    enrolledCourses: [],
   },
   {
     studentId: "650610002",
@@ -15,7 +18,10 @@ export const students: Student[] = [
     lastName: "Murphy",
     program: "CPE",
     status: "Active",
-    enrolledCourses: ["CS201", "CPE302"],
+    enrolledCourses: [
+      "261207",
+      "261497",
+    ],
   },
   {
     studentId: "650610003",
@@ -23,65 +29,39 @@ export const students: Student[] = [
     lastName: "Blunt",
     program: "ISNE",
     status: "Active",
-    enrolledCourses: ["CPE301", "CPE302"],
-  },
-  {
-    studentId: "650610004",
-    firstName: "Florence",
-    lastName: "Pugh",
-    program: "CPE",
-    status: "Active",
-    enrolledCourses: ["CPE302"],
-  },
-  {
-    studentId: "650610005",
-    firstName: "Robert",
-    lastName: "Downey",
-    program: "ISNE",
-    status: "Active",
-    enrolledCourses: [],
-  },
-  {
-    studentId: "650610006",
-    firstName: "Zendaya",
-    lastName: "Coleman",
-    program: "ISNE",
-    status: "Inactive",
-    enrolledCourses: ["CS201"],
+    enrolledCourses: [
+      "269101",
+      "261497",
+    ],
   },
 ];
 
 export const courses: Course[] = [
   {
-    courseCode: "CPE301",
-    courseTitle: "Basic Computer Engineering Lab",
-    instructors: ["Dome", "Chanadda"],
+    courseCode: "261207",
+    courseTitle:
+      "Basic Computer Engineering Lab",
+    instructors: [
+      "Dome",
+      "Chanadda",
+    ],
   },
   {
-    courseCode: "CPE302",
-    courseTitle: "Full Stack Development",
-    instructors: ["Dome", "Nirand", "Chanadda"],
+    courseCode: "261497",
+    courseTitle:
+      "Full Stack Development",
+    instructors: [
+      "Dome",
+      "Nirand",
+      "Chanadda",
+    ],
   },
   {
-    courseCode: "CS201",
-    courseTitle: "Data Structures",
-    instructors: ["Cillian Murphy"],
-  },
-  {
-    courseCode: "CPE101",
-    courseTitle: "Introduction to Programming",
-    instructors: ["Dome"],
-  },
-  {
-    courseCode: "CPE401",
+    courseCode: "269101",
     courseTitle:
       "Introduction to Information Systems and Network Engineering",
-    instructors: ["KENNETH COSH"],
+    instructors: [
+      "KENNETH COSH",
+    ],
   },
 ];
-
-export const CURRENT_STUDENT_ID = "650610002";
-
-export const currentStudent = students.find(
-  (student) => student.studentId === CURRENT_STUDENT_ID,
-)!;

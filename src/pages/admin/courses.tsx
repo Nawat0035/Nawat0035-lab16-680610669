@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  PlusCircle,
-  Trash2,
-  X,
-} from "lucide-react";
+import { PlusCircle, Trash2, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -20,6 +16,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,8 +41,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { MultiCombobox } from "@/components/ui/combobox";
-
 import {
   Table,
   TableBody,
@@ -45,6 +52,11 @@ import {
 
 import { useEnrollmentStore } from "@/lib/enrollment-store";
 
+type InstructorOption = {
+  name: string;
+  isNew?: boolean;
+};
+
 export default function AdminCoursesPage() {
   const {
     courses,
@@ -53,8 +65,7 @@ export default function AdminCoursesPage() {
     removeInstructor,
   } = useEnrollmentStore();
 
-  const [dialogOpen, setDialogOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
 
   const [courseCode, setCourseCode] =
     useState("");
@@ -62,123 +73,218 @@ export default function AdminCoursesPage() {
   const [courseTitle, setCourseTitle] =
     useState("");
 
-  const [instructors, setInstructors] =
-    useState<string[]>([]);
+  const [selectedInstructors, setSelectedInstructors] =
+    useState<InstructorOption[]>([]);
+
+  const [instructorQuery, setInstructorQuery] =
+    useState("");
 
   const [deleteCode, setDeleteCode] =
     useState<string | null>(null);
 
+  const instructorAnchor =
+    useComboboxAnchor();
+
   /*
-   * รวมชื่อผู้สอนจากทุกวิชา
-   * และตัดชื่อซ้ำออก
+   * รวมรายชื่อผู้สอนจากทุกวิชา
+   * และตัดชื่อที่ซ้ำกัน
    */
-  const instructorOptions = useMemo(() => {
-    const names = Array.from(
-      new Set(
-        courses.flatMap(
-          (course) =>
-            course.instructors ?? [],
-        ),
-      ),
+  const allInstructors = useMemo(() => {
+    const names = courses.flatMap(
+      (course) =>
+        course.instructors ?? [],
     );
 
-    return names.map((name) => ({
-      value: name,
-      label: name,
-    }));
+    return [
+      ...new Set(names),
+    ].sort((a, b) =>
+      a.localeCompare(b),
+    );
   }, [courses]);
 
   /*
    * ตรวจรหัสวิชาซ้ำ
-   * ไม่สนตัวพิมพ์เล็ก-ใหญ่
-   * เช่น cs101 กับ CS101 ถือว่าซ้ำกัน
+   * เช่น cs101 และ CS101 ถือว่าซ้ำ
    */
-  const duplicateCode = courses.some(
-    (course) =>
-      course.courseCode.toLowerCase() ===
-      courseCode
-        .trim()
-        .toLowerCase(),
+  const normalizedCode =
+    courseCode
+      .trim()
+      .toLowerCase();
+
+  const duplicateCode =
+    Boolean(
+      normalizedCode &&
+        courses.some(
+          (course) =>
+            course.courseCode
+              .toLowerCase() ===
+            normalizedCode,
+        ),
+    );
+
+  const canSave = Boolean(
+    courseCode.trim() &&
+      courseTitle.trim() &&
+      !duplicateCode,
   );
 
-  const canSave =
-    courseCode.trim() !== "" &&
-    courseTitle.trim() !== "" &&
-    !duplicateCode;
+  /*
+   * รายการผู้สอนใน Combobox
+   * ถ้าพิมพ์ชื่อใหม่ จะเพิ่มตัวเลือก
+   * + เพิ่มผู้สอน "ชื่อ"
+   */
+  const instructorItems =
+    useMemo(() => {
+      const existing =
+        allInstructors.map(
+          (name) => ({
+            name,
+          }),
+        );
+
+      const query =
+        instructorQuery.trim();
+
+      const alreadyExists =
+        allInstructors.some(
+          (name) =>
+            name.toLowerCase() ===
+            query.toLowerCase(),
+        );
+
+      if (
+        query &&
+        !alreadyExists
+      ) {
+        return [
+          ...existing,
+          {
+            name: query,
+            isNew: true,
+          },
+        ];
+      }
+
+      return existing;
+    }, [
+      allInstructors,
+      instructorQuery,
+    ]);
 
   const resetForm = () => {
     setCourseCode("");
     setCourseTitle("");
-    setInstructors([]);
+    setSelectedInstructors([]);
+    setInstructorQuery("");
   };
 
-  const handleDialogChange = (
-    open: boolean,
+  const handleOpenChange = (
+    nextOpen: boolean,
   ) => {
-    setDialogOpen(open);
+    setOpen(nextOpen);
 
-    if (!open) {
+    if (!nextOpen) {
       resetForm();
     }
   };
 
-  const handleAddCourse = () => {
+  /*
+   * เมื่อเลือก/ยกเลิกผู้สอน
+   */
+  const handleInstructorChange = (
+    nextValue:
+      | InstructorOption[]
+      | InstructorOption
+      | null,
+  ) => {
+    const next = Array.isArray(
+      nextValue,
+    )
+      ? nextValue
+      : [];
+
+    /*
+     * ป้องกันชื่อผู้สอนซ้ำ
+     */
+    const unique = next.filter(
+      (
+        item,
+        index,
+        list,
+      ) =>
+        list.findIndex(
+          (x) =>
+            x.name.toLowerCase() ===
+            item.name.toLowerCase(),
+        ) === index,
+    );
+
+    setSelectedInstructors(
+      unique.map((item) => ({
+        name: item.name,
+      })),
+    );
+
+    setInstructorQuery("");
+  };
+
+  /*
+   * บันทึกวิชา
+   */
+  const handleSave = () => {
     if (!canSave) {
       return;
     }
 
     addCourse({
-      courseCode: courseCode
-        .trim()
-        .toUpperCase(),
+      courseCode:
+        courseCode
+          .trim()
+          .toUpperCase(),
 
       courseTitle:
         courseTitle.trim(),
 
-      instructors,
+      ...(selectedInstructors.length >
+      0
+        ? {
+            instructors:
+              selectedInstructors.map(
+                (item) =>
+                  item.name,
+              ),
+          }
+        : {}),
     });
 
-    setDialogOpen(false);
-    resetForm();
-  };
-
-  const handleRemoveCourse = () => {
-    if (!deleteCode) {
-      return;
-    }
-
-    removeCourse(deleteCode);
-    setDeleteCode(null);
+    handleOpenChange(false);
   };
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div
-        className="
-          flex flex-col justify-between gap-3
-          sm:flex-row sm:items-center
-        "
-      >
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">
             จัดการวิชาเรียน
           </h1>
 
           <p className="text-sm text-muted-foreground">
-            จัดการรายวิชาและผู้สอนของแต่ละวิชา
+            เพิ่ม ลบ และจัดการผู้สอนของรายวิชา
           </p>
         </div>
 
         {/* Dialog เพิ่มวิชา */}
         <Dialog
-          open={dialogOpen}
-          onOpenChange={handleDialogChange}
+          open={open}
+          onOpenChange={
+            handleOpenChange
+          }
         >
           <DialogTrigger
             render={<Button />}
           >
-            <PlusCircle />
+            <PlusCircle className="size-4" />
             เพิ่มวิชา
           </DialogTrigger>
 
@@ -190,7 +296,7 @@ export default function AdminCoursesPage() {
 
               <DialogDescription>
                 กรอกรหัสวิชา ชื่อวิชา
-                และผู้สอน
+                และเลือกผู้สอนได้หลายคน
               </DialogDescription>
             </DialogHeader>
 
@@ -207,12 +313,12 @@ export default function AdminCoursesPage() {
                   aria-invalid={
                     duplicateCode
                   }
-                  placeholder="เช่น CS101"
                   onChange={(event) =>
                     setCourseCode(
                       event.target.value,
                     )
                   }
+                  placeholder="เช่น CS101"
                 />
 
                 {duplicateCode && (
@@ -235,12 +341,12 @@ export default function AdminCoursesPage() {
                 <Input
                   id="courseTitle"
                   value={courseTitle}
-                  placeholder="เช่น Data Structures"
                   onChange={(event) =>
                     setCourseTitle(
                       event.target.value,
                     )
                   }
+                  placeholder="ชื่อวิชา"
                 />
               </div>
 
@@ -250,27 +356,105 @@ export default function AdminCoursesPage() {
                   ผู้สอน
                 </Label>
 
-                <MultiCombobox
-                  options={
-                    instructorOptions
+                <Combobox
+                  items={
+                    instructorItems
                   }
-                  value={instructors}
+                  multiple
+                  value={
+                    selectedInstructors
+                  }
+                  inputValue={
+                    instructorQuery
+                  }
+                  onInputValueChange={
+                    setInstructorQuery
+                  }
                   onValueChange={
-                    setInstructors
+                    handleInstructorChange
                   }
-                  placeholder="เลือกหรือพิมพ์ผู้สอน"
-                  allowCustom
-                  addText="เพิ่มผู้สอน"
-                />
+                  itemToStringValue={(
+                    item,
+                  ) => item.name}
+                  isItemEqualToValue={(
+                    item,
+                    value,
+                  ) =>
+                    item.name ===
+                    value.name
+                  }
+                >
+                  <ComboboxChips
+                    ref={
+                      instructorAnchor
+                    }
+                  >
+                    <ComboboxValue>
+                      {(
+                        value: InstructorOption[],
+                      ) =>
+                        value.map(
+                          (item) => (
+                            <ComboboxChip
+                              key={
+                                item.name
+                              }
+                            >
+                              {
+                                item.name
+                              }
+                            </ComboboxChip>
+                          ),
+                        )
+                      }
+                    </ComboboxValue>
+
+                    <ComboboxChipsInput
+                      placeholder="เลือกหรือพิมพ์ชื่อผู้สอน"
+                    />
+                  </ComboboxChips>
+
+                  <ComboboxContent
+                    anchor={
+                      instructorAnchor
+                    }
+                  >
+                    <ComboboxEmpty>
+                      ไม่พบผู้สอน
+                    </ComboboxEmpty>
+
+                    <ComboboxList>
+                      {(
+                        item: InstructorOption,
+                      ) => (
+                        <ComboboxItem
+                          key={`${item.isNew ? "new" : "old"}-${item.name}`}
+                          value={item}
+                        >
+                          {item.isNew
+                            ? `+ เพิ่มผู้สอน "${item.name}"`
+                            : item.name}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </div>
             </div>
 
             <DialogFooter>
               <Button
-                disabled={!canSave}
-                onClick={
-                  handleAddCourse
+                variant="outline"
+                onClick={() =>
+                  handleOpenChange(false)
                 }
+              >
+                ยกเลิก
+              </Button>
+
+              <Button
+                disabled={!canSave}
+                onClick={handleSave}
               >
                 บันทึก
               </Button>
@@ -303,105 +487,103 @@ export default function AdminCoursesPage() {
           </TableHeader>
 
           <TableBody>
-            {courses.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="
-                    h-20 text-center
-                    text-muted-foreground
-                  "
-                >
-                  ยังไม่มีข้อมูลวิชา
-                </TableCell>
-              </TableRow>
-            )}
+            {courses.map(
+              (course) => {
+                const instructors =
+                  course.instructors ??
+                  [];
 
-            {courses.map((course) => (
-              <TableRow
-                key={course.courseCode}
-              >
-                {/* รหัส */}
-                <TableCell className="font-medium">
-                  {course.courseCode}
-                </TableCell>
-
-                {/* ชื่อ */}
-                <TableCell>
-                  {course.courseTitle}
-                </TableCell>
-
-                {/* ผู้สอน */}
-                <TableCell>
-                  {(course.instructors ??
-                    []).length === 0 ? (
-                    <span className="text-sm text-muted-foreground">
-                      ยังไม่มีผู้สอน
-                    </span>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {(
-                        course.instructors ??
-                        []
-                      ).map(
-                        (instructor) => (
-                          <Badge
-                            key={
-                              instructor
-                            }
-                            variant="secondary"
-                          >
-                            {instructor}
-
-                            <button
-                              type="button"
-                              className="
-                                rounded-full
-                                hover:text-destructive
-                              "
-                              aria-label={`ลบผู้สอน ${instructor}`}
-                              onClick={() =>
-                                removeInstructor(
-                                  course.courseCode,
-                                  instructor,
-                                )
-                              }
-                            >
-                              <X />
-                            </button>
-                          </Badge>
-                        ),
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-
-                {/* Action */}
-                <TableCell className="text-center">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`ลบวิชา ${course.courseCode}`}
-                    onClick={() =>
-                      setDeleteCode(
-                        course.courseCode,
-                      )
+                return (
+                  <TableRow
+                    key={
+                      course.courseCode
                     }
                   >
-                    <Trash2 className="text-destructive" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                    <TableCell className="font-medium">
+                      {
+                        course.courseCode
+                      }
+                    </TableCell>
+
+                    <TableCell>
+                      {
+                        course.courseTitle
+                      }
+                    </TableCell>
+
+                    <TableCell>
+                      {instructors.length ===
+                      0 ? (
+                        <span className="text-muted-foreground">
+                          ยังไม่มีผู้สอน
+                        </span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {instructors.map(
+                            (
+                              instructor,
+                            ) => (
+                              <Badge
+                                key={
+                                  instructor
+                                }
+                                variant="secondary"
+                                className="gap-1"
+                              >
+                                {
+                                  instructor
+                                }
+
+                                <button
+                                  type="button"
+                                  className="rounded-full outline-none hover:text-destructive"
+                                  aria-label={`ลบผู้สอน ${instructor}`}
+                                  onClick={() =>
+                                    removeInstructor(
+                                      course.courseCode,
+                                      instructor,
+                                    )
+                                  }
+                                >
+                                  <X className="size-3" />
+                                </button>
+                              </Badge>
+                            ),
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
+                        aria-label={`ลบวิชา ${course.courseCode}`}
+                        onClick={() =>
+                          setDeleteCode(
+                            course.courseCode,
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              },
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Dialog ยืนยันการลบ */}
+      {/* AlertDialog ยืนยันลบ */}
       <AlertDialog
-        open={deleteCode !== null}
-        onOpenChange={(open) => {
-          if (!open) {
+        open={
+          deleteCode !== null
+        }
+        onOpenChange={(value) => {
+          if (!value) {
             setDeleteCode(null);
           }
         }}
@@ -415,9 +597,8 @@ export default function AdminCoursesPage() {
             <AlertDialogDescription>
               ต้องการลบวิชา{" "}
               {deleteCode} ใช่หรือไม่?
-              การลบวิชาจะนำรหัสวิชานี้
-              ออกจากการลงทะเบียน
-              ของนักศึกษาด้วย
+              การลงทะเบียนของนักศึกษา
+              ที่อ้างถึงวิชานี้จะถูกนำออกด้วย
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -427,14 +608,16 @@ export default function AdminCoursesPage() {
             </AlertDialogCancel>
 
             <AlertDialogAction
-              className="
-                bg-destructive
-                text-destructive-foreground
-                hover:bg-destructive/90
-              "
-              onClick={
-                handleRemoveCourse
-              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteCode) {
+                  removeCourse(
+                    deleteCode,
+                  );
+                }
+
+                setDeleteCode(null);
+              }}
             >
               ลบวิชา
             </AlertDialogAction>
