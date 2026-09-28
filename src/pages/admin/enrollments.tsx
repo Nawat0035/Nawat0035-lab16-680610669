@@ -85,19 +85,8 @@ export default function AdminEnrollmentsPage() {
   const studentAnchor =
     useComboboxAnchor();
 
-  /*
-   * หาวิชาที่เลือก
-   */
-  const selectedCourseData =
-    courses.find(
-      (course) =>
-        course.courseCode ===
-        selectedCourse,
-    );
-
-  /*
-   * หารหัสนักศึกษาที่ลงทะเบียนวิชานี้แล้ว
-   */
+  
+  
   const registeredIds = useMemo(() => {
     if (!selectedCourse) {
       return new Set<string>();
@@ -120,9 +109,7 @@ export default function AdminEnrollmentsPage() {
     students,
   ]);
 
-  /*
-   * นักศึกษาที่สามารถเลือกได้
-   */
+  
   const availableStudents =
     useMemo(
       () =>
