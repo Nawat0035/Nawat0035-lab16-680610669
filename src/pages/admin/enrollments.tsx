@@ -85,8 +85,6 @@ export default function AdminEnrollmentsPage() {
   const studentAnchor =
     useComboboxAnchor();
 
-  
-  
   const registeredIds = useMemo(() => {
     if (!selectedCourse) {
       return new Set<string>();
